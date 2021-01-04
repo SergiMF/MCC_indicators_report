@@ -22,15 +22,15 @@ source2('Llibreria_setmanal.R')
 codis<-as.data.frame(read_excel('./Metaarxius/codis_municipis.xlsx'))
 codis$nom_unitat_de_poblacio<-toupper(codis$nom_unitat_de_poblacio)
 
-pacients<-as.data.frame(read_excel('./Dataset/pacients.xlsx',col_types = 'text'))
-contactes<-as.data.frame(read_excel('./Dataset/contactes.xlsx',col_types = 'text'))
+pacients<-as.data.frame(read_excel('./Dataset/pacients.xlsx',col_types = 'text')) %>% distinct()
+contactes<-as.data.frame(read_excel('./Dataset/contactes.xlsx',col_types = 'text')) %>% distinct()
 t.historica<-as.data.frame(read_excel('./Metaarxius/taula3_historica.xlsx',col_types = 'text'))
 #carrego dades setmana-2:
-pacients_sem_2<-as.data.frame(read_excel('./Dataset/pacients_setmana-2.xlsx',col_types = 'text'))
-contactes_sem_2<-as.data.frame(read_excel('./Dataset/contactes_setmana-2.xlsx',col_types = 'text'))
+pacients_sem_2<-as.data.frame(read_excel('./Dataset/pacients_setmana-2.xlsx',col_types = 'text')) %>% distinct()
+contactes_sem_2<-as.data.frame(read_excel('./Dataset/contactes_setmana-2.xlsx',col_types = 'text')) %>% distinct()
 #carrego dades setmana -3:
-pacients_sem_3<-as.data.frame(read_excel('./Dataset/pacients_setmana-3.xlsx',col_types = 'text'))
-contactes_sem_3<-as.data.frame(read_excel('./Dataset/contactes_setmana-3.xlsx',col_types = 'text'))
+pacients_sem_3<-as.data.frame(read_excel('./Dataset/pacients_setmana-3.xlsx',col_types = 'text')) %>% distinct()
+contactes_sem_3<-as.data.frame(read_excel('./Dataset/contactes_setmana-3.xlsx',col_types = 'text')) %>% distinct()
 rs_sve<-as.data.frame(read_excel('./Metaarxius/taula_conversor_SVE.xlsx'))
 
 
@@ -166,7 +166,7 @@ taula_casos_contactes_escolars<-pacients.2_sve %>% filter(CIP%in%CIPS_casos_esco
   dplyr::summarize('Casos_contactes_escolars'=n())
 taula_casos_contactes_no_escolars<-pacients.2_sve %>% filter(CIP%in%CIPS_casos_no_escolars$CIP) %>% group_by(SVE) %>%
   dplyr::summarize('Casos_contactes_no_escolars'=n())
-taula_casos_escolars<-left_join(taula_casos_contactes_escolars,taula_casos_contactes_no_escolars,by='SVE')
+taula_casos_escolars<-full_join(taula_casos_contactes_escolars,taula_casos_contactes_no_escolars,by='SVE')
 
 
 #Trec els contactes amb àmbit escolar per SVE de contacte
@@ -253,6 +253,23 @@ taula_ambits_verificacio<-contactes_2_sve %>% group_by(`àmbit contacte`,verific
   arrange(`àmbit contacte`,verificació) %>% as.data.frame()
 
 
+#Taula 8 Casuístiques de no seguiment de contactes estrets verificats:
+#Taula 8a:Incidències de no seguiment de contactes
+Taula8.a<-contactes_2_sve %>% filter(!is.na(verificació) & verificació%in%c('error dades','rebutja','no contesta','CIP no vàlid')) %>% 
+  group_by(verificació) %>% dplyr::summarize(N=n()) %>% arrange(verificació) %>% 
+  mutate(Percentatge=round(N/sum(N)*100,1),
+         'verificació'=c('CIP no vàlid','Error de dades','No respon','Rebutja seguiment')) %>% as.data.frame() %>% 
+  add_row(verificació='Totals',N=sum(.$N),Percentatge=sum(.$Percentatge))
+#taula8b:Contactes que no requereixen seguiment
+Taula8.b<-contactes_2_sve %>%  filter(!is.na(verificació) & verificació%in%c('migrat SVE','contacte altre cas','no és contacte','és cas','contacte no vàlid')) %>% 
+  mutate(verificació=str_replace(verificació,'contacte no vàlid','no és contacte')) %>% 
+  group_by(verificació) %>% dplyr::summarize(N=n()) %>% arrange(verificació) %>% 
+  mutate(Percentatge=round(N/sum(N)*100,1),
+         'verificació'=str_to_sentence(verificació) %>% str_replace_all('sve','SVE')) %>%  
+  as.data.frame() %>% 
+  add_row(verificació='Totals',N=sum(.$N),Percentatge=sum(.$Percentatge))        
+
+
 # INDICADOR3 seguiment de contactes estrets (CE) ------------------------
 
 
@@ -274,22 +291,16 @@ list.dia14<-funcio_CE_seguiment2(contactes_2_sve_sem3,14)
 cont_seguim_dia7<-list.dia7[[1]]
 
 #Els seguiments a dia 10, poden estar a la setmana -2 i -3
-cont_seguim_dia10_2<-list.dia10_2[[1]]
-cont_seguim_dia10_3<-list.dia10_3[[1]]
+cont_seguim_dia10_2<-list.dia10_2[[1]] %>% mutate(Seguiment_dia10=as.numeric(Seguiment_dia10))
+cont_seguim_dia10_3<-list.dia10_3[[1]] %>% mutate(Seguiment_dia10=as.numeric(Seguiment_dia10))
 cont_seguim_dia10_2.3<-rbind(cont_seguim_dia10_2,cont_seguim_dia10_3) %>% #sumen els coincidents
   group_by(SVE,Estat) %>% summarise_all(list(sum))
 
-if(nrow(cont_seguim_dia10_2.3[cont_seguim_dia10_2.3$SVE!='Sense seguiments',])>0){
-  cont_seguim_dia10<-cont_seguim_dia10_2.3[cont_seguim_dia10_2.3$SVE!='Sense seguiments',]
-}else{
-  cont_seguim_dia10<-cont_seguim_dia10_2.3 %>% distinct()
-}
 #seguiment dia 14
 cont_seguim_dia14<-list.dia14[[1]]
 
-Taula_seguiment<-full_join(cont_seguim_dia7,cont_seguim_dia10, by=c('SVE','Estat'))%>%full_join(cont_seguim_dia14,by=c('SVE','Estat')) %>%
-  filter(SVE!='Sense seguiments') %>%
-  replace(is.na(.), 0) %>% funcio_corregir_sve() %>% arrange(SVE)
+Taula_seguiment<-full_join(cont_seguim_dia7,cont_seguim_dia10_2.3, by=c('SVE','Estat'))%>%full_join(cont_seguim_dia14,by=c('SVE','Estat')) %>%
+  replace(is.na(.), 0) %>% funcio_corregir_sve() %>%funcio_sense_seg() %>%arrange(SVE)
 
 Taula_seguiment<-rbind(Taula_seguiment,c("Totals",'---', as.character(sum(as.numeric(Taula_seguiment$Seguiment_dia7))),as.character(sum(as.numeric(Taula_seguiment$Seguiment_dia10))),as.character(sum(as.numeric(Taula_seguiment$Seguiment_dia14)))))
 
@@ -303,48 +314,36 @@ Taula_seguiment<-rbind(Taula_seguiment,c("Totals",'---', as.character(sum(as.num
 Motius_dia7<-list.dia7[[2]]
 
 #Els seguiments a dia 10, poden estar a la setmana -2 i -3
-Motius_dia10_2<-list.dia10_2[[2]] %>% as.data.frame()
-Motius_dia10_3<-list.dia10_3[[2]] %>% as.data.frame()
+Motius_dia10_2<-list.dia10_2[[2]] %>% as.data.frame() %>% mutate(Motius_dia_10=as.numeric(Motius_dia_10))
+Motius_dia10_3<-list.dia10_3[[2]] %>% as.data.frame() %>% mutate(Motius_dia_10=as.numeric(Motius_dia_10))
 Motius_dia10_2.3<-rbind(Motius_dia10_2,Motius_dia10_3) %>% #sumen els coincidents
   group_by(SVE,Motiu) %>% summarise_all(list(sum))
 
-if(nrow(Motius_dia10_2.3[Motius_dia10_2.3$SVE!='Sense seguiments',])>0){
-  Motius_dia10<-Motius_dia10_2.3[Motius_dia10_2.3$SVE!='Sense seguiments',]
-}else{
-  Motius_dia10<-Motius_dia10_2.3 %>% distinct()
-}
 #Motius dia 14:
 Motius_dia14<-list.dia14[[2]]
 
-Taula_motius_SVE<-full_join(Motius_dia7,Motius_dia10,by=c('SVE','Motiu'))%>%full_join(Motius_dia14,by=c('SVE','Motiu')) %>% 
+Taula_motius_SVE<-full_join(Motius_dia7,Motius_dia10_2.3,by=c('SVE','Motiu'))%>%full_join(Motius_dia14,by=c('SVE','Motiu')) %>% 
   mutate_at(vars(Motius_dia_7,Motius_dia_10,Motius_dia_14),~replace_na(.,0))%>%
-  funcio_corregir_sve() %>% arrange(SVE) %>% as.data.frame()
-
+  funcio_corregir_sve() %>% funcio_sense_seg() %>%  arrange(SVE) %>% as.data.frame()
 
 # INDICADOR 4: Evolució de contactes estrets a cas en el període d’estudi -------------------------------------------
 
 #Simptomàtics
 I4_simptomàtics_0<-as.data.frame(contactes_2_sve%>%filter(símptomes=='Sí')%>%group_by(SVE)%>%dplyr::summarize(Simptomàtics_dia0=n()))%>%replace(is.na(.), 0)
 I4_simptomàtics_7<-list.dia7[[3]]
-I4_simptomàtics_dia10_2<-list.dia10_2[[3]]
-I4_simptomàtics_dia10_3<-list.dia10_3[[3]]
+I4_simptomàtics_dia10_2<-list.dia10_2[[3]]%>% as.data.frame() %>% mutate(Simptomàtics_dia_10=as.numeric(Simptomàtics_dia_10))
+I4_simptomàtics_dia10_3<-list.dia10_3[[3]] %>% as.data.frame() %>% mutate(Simptomàtics_dia_10=as.numeric(Simptomàtics_dia_10))
 I4_simptomàtics_dia10_2.3<-rbind(I4_simptomàtics_dia10_2,I4_simptomàtics_dia10_3) %>% #sumen els coincidents
   group_by(SVE) %>% summarise_all(list(sum))
 
-if(nrow(I4_simptomàtics_dia10_2.3[I4_simptomàtics_dia10_2.3$SVE!='Sense seguiments',])>0){
-  I4_simptomàtics_dia10<-I4_simptomàtics_dia10_2.3[I4_simptomàtics_dia10_2.3$SVE!='Sense seguiments',]
-}else{
-  I4_simptomàtics_dia10<-I4_simptomàtics_dia10_2.3 %>% distinct()
-}
-
 I4_simptomàtics_14<-list.dia14[[3]]
 
-I4_simptomàtics0_7_14<-left_join(I4_simptomàtics_0,I4_simptomàtics_7,by=c('SVE')) %>% 
-                    left_join(I4_simptomàtics_dia10,by=c('SVE')) %>% 
-                    left_join(I4_simptomàtics_14,by=c('SVE')) %>%
+I4_simptomàtics0_7_14<-full_join(I4_simptomàtics_0,I4_simptomàtics_7,by=c('SVE')) %>% 
+                    full_join(I4_simptomàtics_dia10_2.3,by=c('SVE')) %>% 
+                    full_join(I4_simptomàtics_14,by=c('SVE')) %>%
                     replace(is.na(.), 0) %>% 
                     mutate(Totals= na.omit(as.numeric(Simptomàtics_dia0) + as.numeric(Simptomàtics_dia_7) + as.numeric(Simptomàtics_dia_10)+ as.numeric(Simptomàtics_dia_14))) %>%
-                    funcio_corregir_sve() %>% arrange(SVE)
+                    funcio_corregir_sve() %>% funcio_sense_seg()%>%arrange(SVE)
   
 I4_simptomàtics0_7_14<-rbind(I4_simptomàtics0_7_14,c('Totals',sum(I4_simptomàtics0_7_14$Simptomàtics_dia0),
                                                      sum(as.numeric(I4_simptomàtics0_7_14$Simptomàtics_dia_7)),
@@ -357,25 +356,19 @@ I4_simptomàtics0_7_14<-rbind(I4_simptomàtics0_7_14,c('Totals',sum(I4_simptomà
 #Asimptomàtics
 I4_asimptomàtics_0<-as.data.frame(contactes_2_sve%>%filter(símptomes=='No')%>% group_by(SVE)%>%dplyr::summarize(Asimptomàtics_dia0=n())) %>% replace(is.na(.),0) 
 I4_asimptomàtics_7<-list.dia7[[4]]
-I4_asimptomàtics_dia10_2<-list.dia10_2[[4]]
-I4_asimptomàtics_dia10_3<-list.dia10_3[[4]]
+I4_asimptomàtics_dia10_2<-list.dia10_2[[4]] %>% as.data.frame() %>% mutate(Asimptomàtics_dia_10=as.numeric(Asimptomàtics_dia_10))
+I4_asimptomàtics_dia10_3<-list.dia10_3[[4]] %>% as.data.frame() %>% mutate(Asimptomàtics_dia_10=as.numeric(Asimptomàtics_dia_10))
 I4_asimptomàtics_dia10_2.3<-rbind(I4_asimptomàtics_dia10_2,I4_asimptomàtics_dia10_3) %>% #sumen els coincidents
   group_by(SVE) %>% summarise_all(list(sum))
 
-if(nrow(I4_asimptomàtics_dia10_2.3[I4_asimptomàtics_dia10_2.3$SVE!='Sense seguiments',])>0){
-  I4_asimptomàtics_dia10<-I4_asimptomàtics_dia10_2.3[I4_asimptomàtics_dia10_2.3$SVE!='Sense seguiments',]
-}else{
-  I4_asimptomàtics_dia10<-I4_asimptomàtics_dia10_2.3 %>% distinct()
-}
-
 I4_asimptomàtics_14<-list.dia14[[4]]
 
-I4_asimptomàtics0_7_14<-left_join(I4_asimptomàtics_0,I4_asimptomàtics_7,by=c('SVE')) %>% 
-  left_join(I4_asimptomàtics_dia10,by=c('SVE')) %>% 
-  left_join(I4_asimptomàtics_14,by=c('SVE')) %>%
+I4_asimptomàtics0_7_14<-full_join(I4_asimptomàtics_0,I4_asimptomàtics_7,by=c('SVE')) %>% 
+  full_join(I4_asimptomàtics_dia10_2.3,by=c('SVE')) %>% 
+  full_join(I4_asimptomàtics_14,by=c('SVE')) %>%
   replace(is.na(.), 0) %>% 
   mutate(Totals= na.omit(as.numeric(Asimptomàtics_dia0) + as.numeric(Asimptomàtics_dia_7) + as.numeric(Asimptomàtics_dia_10)+ as.numeric(Asimptomàtics_dia_14))) %>%
-  funcio_corregir_sve() %>% arrange(SVE)
+  funcio_corregir_sve() %>% funcio_sense_seg() %>%  arrange(SVE)
 
 I4_asimptomàtics0_7_14<-rbind(I4_asimptomàtics0_7_14,c('Totals',sum(I4_asimptomàtics0_7_14$Asimptomàtics_dia0),
                                                      sum(as.numeric(I4_asimptomàtics0_7_14$Asimptomàtics_dia_7)),
@@ -535,7 +528,7 @@ Fig.3<-ggplot(taula_ambits_rangs_sve[!is.na(taula_ambits_rangs_sve$`àmbit conta
         legend.text = element_text(face='bold'))
 
 
-ggsave(paste0('./Output/Figura3_SE',N_setmana,'.jpeg'),plot = Fig.3,width = 27.30,height = 17.64,units = 'cm')
+ggsave(paste0('./Output/Figura3_SE',N_setmana,'.png'),plot = Fig.3,width = 27.30,height = 17.64,units = 'cm')
 
 #Figura1:Freqüència relativa de casos informats (I) i no informats (NI),
 taula3.plot<-rbind(taula3_actual,taula3_anterior)
@@ -567,7 +560,7 @@ Fig1<-ggplot(taula3.plot2, aes(x=SVE,y=`%`,fill=Estat))+
   theme(axis.text.x = element_text(angle=90,hjust=1,vjust = 0.5,size = 12,colour = 'black',face = 'bold'),
         axis.text.y = element_text(face = 'bold',colour='black'),
         legend.text = element_text(face='bold'))
-ggsave(paste0('./Output/Figura1_SE',N_setmana,'.jpeg'),plot = Fig1,width = 27.30,height = 17.64,units = 'cm')
+ggsave(paste0('./Output/Figura1_SE',N_setmana,'.png'),plot = Fig1,width = 27.30,height = 17.64,units = 'cm')
 
 
 #Figura 2:ambits totals
@@ -586,7 +579,7 @@ color.text<-c(replicate(length(colores)-3,'white'),'black','white','black')
 Fig.2<-ggplot(plot.data.ambits.t,aes(x='', y=Percentatge,fill=`àmbit contacte`))+
   geom_bar(stat = 'identity',width=1,color='white',show.legend = F)+
   geom_text(aes(y = lab.ypos, label = ifelse(Percentatge>0, paste0(`àmbit contacte`,' ',round(Percentatge*100,1), "%"),'')), 
-            colour = 'black',
+            colour = 'white',
             nudge_x = 0.15, #posició
             fontface='bold',
             size=5.5
@@ -601,8 +594,52 @@ Fig.2<-ggplot(plot.data.ambits.t,aes(x='', y=Percentatge,fill=`àmbit contacte`)
         plot.caption = element_text(hjust = 0.5)
         ) +
   theme_void()
-ggsave(paste0('./Output/Figura2_SE',N_setmana,'.jpeg'),plot = Fig.2,width = 27.30,height = 17.64,units = 'cm')
+ggsave(paste0('./Output/Figura2_SE',N_setmana,'.png'),plot = Fig.2,width = 27.30,height = 17.64,units = 'cm')
 
+#figura 4a i b
+#Creo taules
+ordre_4a<- c("CIP no vàlid","Error de dades","Rebutja seguiment","No respon")
+colors_4a<-c('#F79646','#70AD47','#4472C4','#FFC000')
+
+plot.fig.4a<-slice(Taula8.a,-nrow(Taula8.a)) %>%arrange(verificació) %>%      #trec els totals
+  mutate(lab.y.pos=cumsum(Percentatge)-0.5*Percentatge)
+
+plot.fig.4a$verificació<-factor(plot.fig.4a$verificació,levels = ordre_4a)
+
+#plots:
+Fig4.a<-ggplot(plot.fig.4a,aes(x='', y=Percentatge,fill=verificació))+
+  geom_bar(stat = 'identity',width=1,color='white',show.legend = F)+
+  theme_void()+
+  geom_text(aes(label =ifelse(Percentatge>0,paste0(verificació,' ',Percentatge,'%'),''),x=c(1.2,1,1,1)),#Amb la x movem distancia a l'eix
+            position = position_stack(vjust = 0.5),
+            colour = 'black',
+            #nudge_x = 0.3, #posició
+            fontface='bold',
+            size=5.5
+  )+
+  coord_polar(theta = 'y',start = 0,direction = -1)+
+  scale_fill_manual(values = colors_4a)
+  
+ggsave(paste0('./Output/Figura4a_SE',N_setmana,'.png'),plot = Fig4.a,width = 27.30,height = 17.64,units = 'cm')  
+  
+
+ordre_4b<-c('Migrat SVE','Contacte altre cas','No és contacte','És cas')
+colors_4b<-c('#70AD47','#4472C4','#FFC000','#9867C5')#9867C5 #999999
+plot.fig.4b<-slice(Taula8.b,-nrow(Taula8.b)) %>%arrange(verificació)    #trec els totals
+plot.fig.4b$verificació<-factor(plot.fig.4b$verificació,levels = ordre_4b)
+
+Fig4.b<-ggplot(plot.fig.4b,aes(x='', y=Percentatge,fill=verificació))+
+  geom_bar(stat = 'identity',width=1,color='white',show.legend = F)+
+  theme_void()+
+  geom_text(aes(label =ifelse(Percentatge>0,paste0(verificació,' ',Percentatge,'%'),''),x=1.1),
+            position = position_stack(vjust = 0.5),
+            colour = 'black',
+            fontface='bold',
+            size=5.5
+  )+
+  coord_polar(theta = 'y',start = 0,direction = -1)+
+  scale_fill_manual(values = colors_4b)
+ggsave(paste0('./Output/Figura4b_SE',N_setmana,'.png'),plot = Fig4.b,width = 27.30,height = 17.64,units = 'cm') 
 
 
 # Outputs en Excel --------------------------------------------------------
@@ -625,10 +662,12 @@ write.xlsx(I4_asimptomàtics0_7_14,sheetName = 'Asimptomàtics',file = './Output
 write.xlsx(Taula_seguiment,sheetName = 'Seguiment',file = './Output/Indicadorssetmanals.xlsx',append = T)
 write.xlsx(Taula_motius_SVE,sheetName = 'Motius_no_confinament_SVE',file = './Output/Indicadorssetmanals.xlsx',append = T)
 write.xlsx(Taula7_soncas,sheetName = 'Taula7',file = './Output/Indicadorssetmanals.xlsx',append = T)
+write.xlsx(Taula8.a,sheetName = 'Taula8a',file = './Output/Indicadorssetmanals.xlsx',append = T)
+write.xlsx(Taula8.b,sheetName = 'Taula8b',file = './Output/Indicadorssetmanals.xlsx',append = T)
 write.xlsx(t.infografic_final,sheetName = 'Taula_infogr',file = './Output/Indicadorssetmanals.xlsx',append = T)
 write.xlsx(Taula_resum_castellano,sheetName = 'taula Madrid SVE',file = './Output/Indicadorssetmanals.xlsx',append=T)
 write.xlsx(Taula_madrid_provincia,sheetName = 'Taula Madrid provicias',file = './Output/Indicadorssetmanals.xlsx',append = T)
 write.xlsx(Taga,sheetName = 'Ind4_EsCas',file = './Output/Indicadorssetmanals.xlsx',append = T)
 
-View(contactes_2_sve %>% filter(SVE%in%'Terres de l\'Ebre') %>% group_by(SVE,`àmbit contacte`) %>% dplyr::summarize(N=n()))
+#View(contactes_2_sve %>% filter(SVE%in%'Terres de l\'Ebre') %>% group_by(SVE,`àmbit contacte`) %>% dplyr::summarize(N=n()))
 

@@ -4,6 +4,10 @@ funcio_posar_sve_pacients<- function(df, codis){
   
   #mirem la funció de posar SVE:
   #corretgim el que sempre esta mal escrit, si hi es
+  if("PARC DELS PRÍNCEPS UN EL" %in% df$municipi){
+    df$municipi[df$municipi == "PARC DELS PRÍNCEPS UN EL"] <- "FOGARS DE LA SELVA"
+    #print("ok1")
+  }
   if("VALL DE CARDÓS LA" %in% df$municipi){
     df$municipi[df$municipi == "VALL DE CARDÓS LA"] <- "VALL DE CARDÓS"
     #print("ok1")
@@ -502,18 +506,19 @@ funcio_CE_seguiment2<-function(df,dia.seg){
                       mutate(Dia_seguiment1=round(time_length(interval(as_date(dmy_hms(`data verificació`)),dmy(data)),'days'),1),
                              Dia_seguiment2=round(time_length(interval(as_date(dmy_hms(`data verificació`)),dmy(data4)),'days'),1)) %>%
                       filter(Dia_seguiment1==dia.seg|Dia_seguiment2==dia.seg) %>% #filtrem pels dies de seguiment que estem buscant a la consulta
-                      group_by(SVE,estat)%>%dplyr::summarize(N=n()))
+                      group_by(SVE,estat)%>%dplyr::summarize(N=n())) %>% as.data.frame()
   colnames(n)[2:3]<-c('Estat',paste0('Seguiment_dia',dia.seg))
-  if(nrow(n)==0){n[nrow(n)+1,]<-c('Sense seguiments','Sense seguiments',0) %>% as.data.frame()}
+  if(nrow(n)==0){n[nrow(n)+1,]<-c('Sense seguiments','Sense seguiments',0)}
+
   #motius:
   
   Mot<-as.data.frame(df%>%filter(estat%in%c('Realitzat','Pendent'))%>% filter((dmy(data)>=dill||dmy(data4)>=dill) & (dmy(data)<=dium||dmy(data4))) %>% 
                        mutate(Dia_seguiment1=round(time_length(interval(as_date(dmy_hms(`data verificació`)),dmy(data)),'days'),1),
                               Dia_seguiment2=round(time_length(interval(as_date(dmy_hms(`data verificació`)),dmy(data4)),'days'),1)) %>%
                        filter(Dia_seguiment1==dia.seg|Dia_seguiment2==dia.seg))
-  Mot.1<-Mot %>% filter(Dia_seguiment1==dia.seg & `confinat casa`=='No') %>% group_by(SVE,`confinament altre`)%>%dplyr::summarize(N=n())
+  Mot.1<-Mot %>% filter(Dia_seguiment1==dia.seg & `confinat casa`=='No') %>% group_by(SVE,`confinament altre`)%>%dplyr::summarize(N=n()) %>% as.data.frame()
   colnames(Mot.1)[2:3]=c('Motiu',paste0('Motius_dia_',dia.seg))
-  Mot.2<-Mot %>% filter(Dia_seguiment2==dia.seg & `confinat casa5`=='No') %>% group_by(SVE,`confinament altre6`)%>%dplyr::summarize(N=n())
+  Mot.2<-Mot %>% filter(Dia_seguiment2==dia.seg & `confinat casa5`=='No') %>% group_by(SVE,`confinament altre6`)%>%dplyr::summarize(N=n()) %>% as.data.frame()
   colnames(Mot.2)[2:3]=c('Motiu',paste0('Motius_dia_',dia.seg))
   if(nrow(Mot.1)==0 & nrow(Mot.2)==0){
     Mot<-Mot.1 %>% as.data.frame()
@@ -529,9 +534,9 @@ funcio_CE_seguiment2<-function(df,dia.seg){
                          mutate(Dia_seguiment1=round(time_length(interval(as_date(dmy_hms(`data verificació`)),dmy(data)),'days'),1),
                                 Dia_seguiment2=round(time_length(interval(as_date(dmy_hms(`data verificació`)),dmy(data4)),'days'),1)) %>%
                          filter(Dia_seguiment1==dia.seg|Dia_seguiment2==dia.seg))
-  Simpt1<-Simpt %>% filter(Dia_seguiment1==dia.seg & símptomes2=='Sí')%>%group_by(SVE)%>%dplyr::summarize(N=n())
+  Simpt1<-Simpt %>% filter(Dia_seguiment1==dia.seg & símptomes2=='Sí')%>%group_by(SVE)%>%dplyr::summarize(N=n()) %>% as.data.frame()
   colnames(Simpt1)[2]=paste0('Simptomàtics_dia_',dia.seg)
-  Simpt2<-Simpt %>% filter(Dia_seguiment2==dia.seg & símptomes7=='Sí')%>%group_by(SVE)%>%dplyr::summarize(N=n())
+  Simpt2<-Simpt %>% filter(Dia_seguiment2==dia.seg & símptomes7=='Sí')%>%group_by(SVE)%>%dplyr::summarize(N=n()) %>% as.data.frame()
   colnames(Simpt2)[2]=c(paste0('Simptomàtics_dia_',dia.seg))
   if(nrow(Simpt1)==0 & nrow(Simpt2)==0){
     Simpt<-Simpt1 %>% as.data.frame()
@@ -546,9 +551,9 @@ funcio_CE_seguiment2<-function(df,dia.seg){
                           mutate(Dia_seguiment1=round(time_length(interval(as_date(dmy_hms(`data verificació`)),dmy(data)),'days'),1),
                                  Dia_seguiment2=round(time_length(interval(as_date(dmy_hms(`data verificació`)),dmy(data4)),'days'),1)) %>%
                           filter(Dia_seguiment1==dia.seg|Dia_seguiment2==dia.seg))
-  Asimpt1<-Asimpt %>% filter(Dia_seguiment1==dia.seg & símptomes2=='No')%>%group_by(SVE)%>%dplyr::summarize(N=n())
+  Asimpt1<-Asimpt %>% filter(Dia_seguiment1==dia.seg & símptomes2=='No')%>%group_by(SVE)%>%dplyr::summarize(N=n()) %>% as.data.frame()
   colnames(Asimpt1)[2]=paste0('Asimptomàtics_dia_',dia.seg)
-  Asimpt2<-Asimpt %>% filter(Dia_seguiment2==dia.seg & símptomes7=='No')%>%group_by(SVE)%>%dplyr::summarize(N=n())
+  Asimpt2<-Asimpt %>% filter(Dia_seguiment2==dia.seg & símptomes7=='No')%>%group_by(SVE)%>%dplyr::summarize(N=n()) %>% as.data.frame()
   colnames(Asimpt2)[2]=c(paste0('Asimptomàtics_dia_',dia.seg))
   if(nrow(Asimpt1)==0 & nrow(Asimpt2)==0){
     Asimpt<-Asimpt1 %>% as.data.frame()
@@ -600,4 +605,15 @@ funcio_aCAs_MCC<-function(df,dfInd){
   Taula<-Taula %>% as.data.frame()
   return(Taula)            
            
+}
+
+#Seguiment, motius i (A)Simptomàtics:
+#Corregir aquells rows que tenen SVE= Sense seguiments, resultat d'un rbind
+funcio_sense_seg<-function(df){
+  if(nrow(df[df$SVE!='Sense seguiments',])>0){
+    df<-df[df$SVE!='Sense seguiments',]
+  }else{
+    df<-df %>% distinct()
+  }
+  return(df)
 }
