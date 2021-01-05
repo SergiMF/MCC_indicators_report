@@ -21,6 +21,7 @@ source2('Llibreria_setmanal.R')
 #Taga<-as.data.frame(read_excel('./Dataset/taga-covid.xlsx')) #Ja no venen pel Luca 
 codis<-as.data.frame(read_excel('./Metaarxius/codis_municipis.xlsx'))
 codis$nom_unitat_de_poblacio<-toupper(codis$nom_unitat_de_poblacio)
+Indicadors<-read_excel('./Metaarxius/Resum_setmanal.xlsx') #per taula resum setmanal
 
 pacients<-as.data.frame(read_excel('./Dataset/pacients.xlsx',col_types = 'text')) %>% distinct()
 contactes<-as.data.frame(read_excel('./Dataset/contactes.xlsx',col_types = 'text')) %>% distinct()
@@ -193,6 +194,25 @@ taula_Escoles<-rbind(taula_Escoles,c('Totals',sum(taula_Escoles$`Casos amb conta
 Taula5<-pacients %>%filter(contactes>0) %>%  group_by(contactes) %>% dplyr::summarize('nº casos informats'=n())
 Taula5<-Taula5 %>%mutate('% de casos amb CE'= round(`nº casos informats`/sum(`nº casos informats`)*100,3)) %>% arrange(desc(`nº casos informats`)) %>% as.data.frame()
 #Taula5<-rbind(Taula5,c('Totals',sum(Taula5$`nº casos informats`),sum(Taula5$`% de casos amb CE`)))
+
+
+# Superspreaders ----------------------------------------------------------
+#Mirem que n'ni hagin
+if(nrow(pacients %>% filter(as.numeric(contactes)>=50))==0){
+  superspreaders<-paste0('No hi han pacients amb +=50 contactes aquesta setmana. El màxim de contactes per pacient han estat: ', max(as.numeric(pacients$contactes)))
+}else{
+  p.se<-pacients %>% filter(as.numeric(contactes)>=50) %>% select(CIP,contactes) #cips dels pacients amb >50 CE
+  c.se<-contactes %>% filter(cas%in%p.se$CIP) %>% group_by(cas,`àmbit contacte`) %>% 
+    dplyr::summarize(N=n()) %>% 
+    spread(`àmbit contacte`,N) %>% #canviem columnes
+    as.data.frame() %>% 
+    replace(is.na(.), 0) %>% 
+    mutate(N_contactes_segons_pestanya_contactes=rowSums(.[2:ncol(.)]))
+  superspreaders<-p.se %>% full_join(c.se,by=c('CIP'='cas'))
+  
+  colnames(superspreaders)[2]<-'N_contactes_segons_pestanya_pacients'
+
+}
 
 
 
@@ -442,7 +462,7 @@ names(Taula6_simptomàtics)<-c('SVE','Contactes simptomàtics')
 
 
 
-# Infogràfic --------------------------------------------------------------
+# INFOGRÀFIC --------------------------------------------------------------
 
 t.infografic<-Indicadors1_2 %>% mutate(SVE=str_replace_all(SVE,'Barcelona$','Barcelona Ciutat')) %>%
   mutate(SVE=str_replace_all(SVE,'Vallès Oriental i Vallès Occidental','Vallès')) %>% select(1:4,6:7)
@@ -503,7 +523,39 @@ names(t.infografic.f)<-c('SVE',
 t.infografic_final<-as.data.frame(t(t.infografic.f[-1]))
 names(t.infografic_final)<-t.infografic.f[,1]
 
-# Gràfics -----------------------------------------------------------------
+
+# TAULA RESUM SETMANAL ----------------------------------------------------
+denom.escoles<-taula_ambits_verificacio %>% filter(`àmbit contacte`=='escolar' & verificació=='no contesta') %>% .$N %>% sum() %>% as.numeric()
+
+Resum.setmanal<-c('',
+                  t.infografic.f[10,2],#1.1
+                  t.infografic.f[10,3],#1.2
+                  t.infografic.f[10,4],#1.3
+                  '','',
+                  t.infografic.f[10,5],#2.1
+                  t.infografic.f[10,6],#2.2
+                  Indicadors1_2[10,9],#2.2.a
+                  paste0('(',Indicadors1_2[10,10],'-',Indicadors1_2[10,11],')'),#2.2.b
+                  '','',
+                  sum(taula_indicador_3_totals[!is.na(taula_indicador_3_totals$verificació),]$N_contactes),#3.1
+                  t.infografic.f[10,7],#3.1a
+                  Taula8.b[5,2],#3.1b
+                  t.infografic.f[10,8],#3.2
+                  t.infografic.f[10,9],#3.3
+                  paste0(round(as.numeric(t.infografic.f[10,7])/(sum(taula_indicador_3_totals[!is.na(taula_indicador_3_totals$verificació),]$N_contactes)-denom.escoles)*100,1),'%') ,#% escoles
+                  t.infografic.f[10,10],#3.4
+                  '','',
+                  t.infografic.f[10,11],#4.1
+                  t.infografic.f[10,12],#4.2
+                  t.infografic.f[10,13],#4.3
+                  t.infografic.f[10,14],#4.4
+                  ''
+                  )
+
+Taula_resum_setmanal<-data.frame(Indicadors$Indicadors,Resum.setmanal)
+colnames(Taula_resum_setmanal)[2]<-paste0('Valor SE',N_setmana)
+
+# GRÀFICS -----------------------------------------------------------------
 
 
 #Figura 3: Distribució del percentatge de contactes estrets per àmbits d’exposició i rang d’edat
@@ -642,12 +694,14 @@ Fig4.b<-ggplot(plot.fig.4b,aes(x='', y=Percentatge,fill=verificació))+
 ggsave(paste0('./Output/Figura4b_SE',N_setmana,'.png'),plot = Fig4.b,width = 27.30,height = 17.64,units = 'cm') 
 
 
-# Outputs en Excel --------------------------------------------------------
+# OUTPUT EXCEL --------------------------------------------------------
 
-write.xlsx(Indicadors1_2_subset,sheetName = 'Indicadors1_2',file = './Output/Indicadorssetmanals.xlsx')
+write.xlsx(Taula_resum_setmanal,sheetName = paste0('Resum_setmanal_SE_',N_setmana),file = './Output/Indicadorssetmanals.xlsx')
+write.xlsx(Indicadors1_2_subset,sheetName = 'Indicadors1_2',file = './Output/Indicadorssetmanals.xlsx',append = T)
 write.xlsx(origen.dades,sheetName = 'Origen_dades',file = './Output/Indicadorssetmanals.xlsx',append = T)
 #write.xlsx(Taula6_simptomàtics,sheetName = 'Taula6',file = './Output/Indicadorssetmanals.xlsx',append = T) 
 write.xlsx(Taula5,sheetName = 'Taula5',file = './Output/Indicadorssetmanals.xlsx',append = T)
+write.xlsx(superspreaders,sheetName = 'Superspreaders',file = './Output/Indicadorssetmanals.xlsx',append = T)
 write.xlsx(Taula3_final,sheetName = 'Taula3',file = './Output/Indicadorssetmanals.xlsx',append = T) #sense Totals
 write.xlsx(taula_indicador_3_totals,sheetName = 'Indicadors_3_Totals',file = './Output/Indicadorssetmanals.xlsx',append = T)
 write.xlsx(Indicadors_3_SVE,sheetName = 'Indicadors_3_SVE',file = './Output/Indicadorssetmanals.xlsx',append = T)
