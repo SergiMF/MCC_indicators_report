@@ -4,7 +4,7 @@
 # Càrrega de Paquets i dataset --------------------------------------------
 #Carreguem paquets:
 suppressMessages(suppressWarnings(if (!require("pacman") == TRUE) { install.packages("pacman", quietly=T) }))
-suppressMessages(suppressWarnings(pacman::p_load(tidyverse,lubridate,readxl,plyr,xlsx,eeptools,RColorBrewer,scales,ISOweek,rstudioapi)))
+suppressMessages(suppressWarnings(pacman::p_load(tidyverse,lubridate,readxl,plyr,xlsx,eeptools,RColorBrewer,scales,ISOweek,rstudioapi,ggrepel)))
 
 #Set working directory
 current_working_dir <- dirname(rstudioapi::getActiveDocumentContext()$path)
@@ -586,7 +586,7 @@ Fig.3<-ggplot(taula_ambits_rangs_sve[!is.na(taula_ambits_rangs_sve$`àmbit conta
         legend.text = element_text(face='bold'))
 
 
-ggsave(paste0('./Output/Figura3_SE',N_setmana,'.png'),plot = Fig.3,width = 27.30,height = 17.64,units = 'cm')
+ggsave(paste0('./Output/Figura3_SE',N_setmana,'.png'),plot = Fig.3,width = 27.30,height = 17.64,units = 'cm',dpi = 400)
 
 #Figura1:Freqüència relativa de casos informats (I) i no informats (NI),
 taula3.plot<-rbind(taula3_actual,taula3_anterior)
@@ -618,7 +618,7 @@ Fig1<-ggplot(taula3.plot2, aes(x=SVE,y=`%`,fill=Estat))+
   theme(axis.text.x = element_text(angle=90,hjust=1,vjust = 0.5,size = 12,colour = 'black',face = 'bold'),
         axis.text.y = element_text(face = 'bold',colour='black'),
         legend.text = element_text(face='bold'))
-ggsave(paste0('./Output/Figura1_SE',N_setmana,'.png'),plot = Fig1,width = 27.30,height = 17.64,units = 'cm')
+ggsave(paste0('./Output/Figura1_SE',N_setmana,'.png'),plot = Fig1,width = 27.30,height = 17.64,units = 'cm',dpi = 400)
 
 
 #Figura 2:ambits totals
@@ -637,12 +637,12 @@ color.text<-c(replicate(length(colores)-3,'white'),'black','white','black')
 Fig.2<-ggplot(plot.data.ambits.t,aes(x='', y=Percentatge,fill=`àmbit contacte`))+
   geom_bar(stat = 'identity',width=1,color='white') +
   coord_polar("y", start = 0)+
-  geom_label_repel(aes(y = lab.ypos, label = ifelse(Percentatge>0.1,paste0(`àmbit contacte`,' ',Percentatge, "%"),'')),
+  geom_label_repel(aes(y = lab.ypos, label = paste0(`àmbit contacte`,' ',Percentatge, "%"),''),
                    size = 5.5, show.legend = F, nudge_x = 0.7, colour='white',segment.colour = 'black',segment.size = 0.8)+
   scale_fill_manual(values = colores)+
   theme_void() +
   theme(legend.position = "none")
-ggsave(paste0('./Output/Figura2_SE',N_setmana,'.png'),plot = Fig.2,width = 27.30,height = 17.64,units = 'cm')
+ggsave(paste0('./Output/Figura2_SE',N_setmana,'.png'),plot = Fig.2,width = 27.30,height = 17.64,units = 'cm',dpi = 400)
 
 #figura 4a i b
 #Creo taules
@@ -650,60 +650,62 @@ ordre_4a<- c("CIP no vàlid","Error de dades","Rebutja seguiment","No respon")
 colors_4a<-c('#F79646','#70AD47','#4472C4','#FFC000')
 
 table.fig.4a<-contactes_2_sve %>% filter(!is.na(verificació) & verificació%in%c('error dades','rebutja','no contesta','CIP no vàlid')) %>% 
-  group_by(verificació) %>% dplyr::summarize(N=n())
+  group_by(verificació) %>% dplyr::summarize(N=n()) %>% as.data.frame()
 #table.fig.4a$verificació<-factor(table.fig.4a$verificació,levels = c("CIP no vàlid","error dades","rebutja","no contesta"))
 
 plot.fig.4a<-table.fig.4a %>% 
   mutate(Percentatge=round(N/sum(N)*100,1)) %>% 
-  mutate(lab.y.pos=sum(Percentatge) - cumsum(Percentatge)+ 0.5*Percentatge) %>% arrange(verificació)
+  mutate(lab.y.pos=sum(Percentatge) - cumsum(Percentatge)+ 0.5*Percentatge,
+         'verificació'=c('CIP no vàlid','Error de dades','No respon','Rebutja seguiment')) %>% arrange(verificació)
 
 #plot.fig.4a$verificació<-factor(plot.fig.4a$verificació,levels = c('error dades','rebutja','no contesta','CIP no vàlid'))
 
 #plots:
-New.fig4.a<-ggplot(plot.fig.4a,aes(x='',y=Percentatge,fill=verificació))+
+Fig4.a<-ggplot(plot.fig.4a,aes(x='',y=Percentatge,fill=verificació))+
   geom_bar(stat = 'identity',width=1,color='white') +
   coord_polar("y", start = 0) +
-  geom_label_repel(aes(y=lab.y.pos,label =paste0(verificació,' ',Percentatge, "%"),''),
-                   size = 5.5, show.legend = F,nudge_x = 0.8, colour='white',segment.colour = 'black',segment.size = 0.8)+
+  geom_label_repel(aes(y=lab.y.pos,label =paste0(verificació,' ',Percentatge, "%"),'',fontface='bold'),
+                   size = 5.5, show.legend = F,nudge_x = c(1,0.01,1,0.1),nudge_y = c(0,0,0,0.0), 
+                   colour=c('white','white','white','white'),
+                   
+                   segment.colour = 'black',segment.size = 0.8)+
   scale_fill_manual(values = colors_4a)+
   theme_void() +
   theme(legend.position = "none")
 
-
-Fig4.a<-ggplot(plot.fig.4a,aes(x='', y=Percentatge,fill=verificació))+
-  geom_bar(stat = 'identity',width=1,color='white',show.legend = F)+
-  theme_void()+
-  geom_text(aes(label =ifelse(Percentatge>0,paste0(verificació,' ',Percentatge,'%'),''),x=c(1.2,1,1,1)),#Amb la x movem distancia a l'eix
-            position = position_stack(vjust = 0.5),
-            colour = 'black',
-            #nudge_x = 0.3, #posició
-            fontface='bold',
-            size=5.5
-            
-  )+
-  coord_polar(theta = 'y',start = 0,direction = -1)+
-  scale_fill_manual(values = colors_4a)
   
-ggsave(paste0('./Output/Figura4a_SE',N_setmana,'.png'),plot = Fig4.a,width = 27.30,height = 17.64,units = 'cm')  
+ggsave(paste0('./Output/Figura4a_SE',N_setmana,'.png'),plot = Fig4.a,width = 27.30,height = 15.87,units = 'cm',dpi = 400)  
   
 
 ordre_4b<-c('Migrat SVE','Contacte altre cas','No és contacte','És cas')
 colors_4b<-c('#70AD47','#4472C4','#FFC000','#9867C5')#9867C5 #999999
-plot.fig.4b<-slice(Taula8.b,-nrow(Taula8.b)) %>%arrange(verificació)    #trec els totals
-plot.fig.4b$verificació<-factor(plot.fig.4b$verificació,levels = ordre_4b)
 
-Fig4.b<-ggplot(plot.fig.4b,aes(x='', y=Percentatge,fill=verificació))+
-  geom_bar(stat = 'identity',width=1,color='white',show.legend = F)+
-  theme_void()+
-  geom_text(aes(label =ifelse(Percentatge>0,paste0(verificació,' ',Percentatge,'%'),''),x=1.1),
-            position = position_fill(vjust = 0.5),
-            colour = 'black',
-            fontface='bold',
-            size=5.5
-  )+
-  coord_polar(theta = 'y',start = 0,direction = -1)+
-  scale_fill_manual(values = colors_4b)
-ggsave(paste0('./Output/Figura4b_SE',N_setmana,'.png'),plot = Fig4.b,width = 27.30,height = 17.64,units = 'cm') 
+table.fig.4b<-contactes_2_sve %>%  
+  filter(!is.na(verificació) & verificació%in%c('migrat SVE','contacte altre cas','no és contacte','és cas','contacte no vàlid')) %>% 
+  mutate('verificació'= str_replace_all(verificació,'contacte no vàlid','no és contacte') %>%  str_to_sentence(verificació)) %>% 
+  mutate('verificació'= str_replace(verificació,'sve','SVE')) %>% 
+  group_by(verificació) %>% dplyr::summarize(N=n()) %>% as.data.frame() 
+
+plot.fig.4b<-table.fig.4b %>% 
+  mutate(Percentatge=round(N/sum(N)*100,1)) %>% 
+  mutate(lab.y.pos=sum(Percentatge) - cumsum(Percentatge)+ 0.5*Percentatge) %>% 
+  arrange(verificació)
+
+Fig4.b<-ggplot(plot.fig.4b,aes(x='',y=Percentatge,fill=verificació))+
+  geom_bar(stat = 'identity',width=1,color='white') +
+  coord_polar("y", start = 0) +
+  geom_label_repel(aes(y=lab.y.pos,label =paste0(verificació,' ',Percentatge, "%"),'',fontface='bold'),
+                   size = 5.5, show.legend = F,
+                   nudge_x = c(1,0,0.5,1),
+                   nudge_y = c(1,0,0.5,1), 
+                   colour=c('white'),
+                   force = 10,
+                   segment.colour = 'black',segment.size = 0.8)+
+  scale_fill_manual(values = colors_4b)+
+  theme_void() +
+  theme(legend.position = "none")
+
+ggsave(paste0('./Output/Figura4b_SE',N_setmana,'.png'),plot = Fig4.b,width = 27.30,height = 15.87,units = 'cm',dpi = 400) 
 
 
 # OUTPUT EXCEL --------------------------------------------------------
@@ -735,6 +737,13 @@ write.xlsx(Taula_resum_castellano,sheetName = 'taula Madrid SVE',file = './Outpu
 write.xlsx(Taula_madrid_provincia,sheetName = 'Taula Madrid provicias',file = './Output/Indicadorssetmanals.xlsx',append = T)
 write.xlsx(Taga,sheetName = 'Ind4_EsCas',file = './Output/Indicadorssetmanals.xlsx',append = T)
 
-#View(contactes_2_sve %>% filter(SVE%in%'Terres de l\'Ebre') %>% group_by(SVE,`àmbit contacte`) %>% dplyr::summarize(N=n()))
 
+# UPDATE TABLES --------------------------------------------------------
+`%notin%` <- Negate(`%in%`)
+if (paste0('SE',N_setmana,'_CI')%notin%colnames(t.historica)){
+  t3.s.act<-Taula3_final %>% select(1:3)
+  colnames(t3.s.act)[2:3]<-c(paste0('SE',N_setmana,'_CI'),paste0('SE',N_setmana,'_CNI'))
+  t.historica<-full_join(t.historica,t3.s.act,by='SVE')
+  write.xlsx(t.historica,sheetName = 'Hoja1','./Metaarxius/taula3_historica.xlsx',append = F)
+}
 
