@@ -586,7 +586,7 @@ Fig.3<-ggplot(taula_ambits_rangs_sve[!is.na(taula_ambits_rangs_sve$`àmbit conta
         legend.text = element_text(face='bold'))
 
 
-ggsave(paste0('./Output/Figura3_SE',N_setmana,'.png'),plot = Fig.3,width = 27.30,height = 17.64,units = 'cm',dpi = 400)
+ggsave(paste0('./Output/Figura3_SE',N_setmana,'.png'),plot = Fig.3,width = 27.30,height = 17.64,units = 'cm',dpi = 500)
 
 #Figura1:Freqüència relativa de casos informats (I) i no informats (NI),
 taula3.plot<-rbind(taula3_actual,taula3_anterior)
@@ -741,9 +741,9 @@ write.xlsx(Taga,sheetName = 'Ind4_EsCas',file = './Output/Indicadorssetmanals.xl
 # UPDATE TABLES --------------------------------------------------------
 `%notin%` <- Negate(`%in%`)
 if (paste0('SE',N_setmana,'_CI')%notin%colnames(t.historica)){
-  t3.s.act<-Taula3_final %>% select(1:3)
+  t3.s.act<-Taula3_final %>% select(1:3) %>% mutate_at(c(1:3),as.character())
   colnames(t3.s.act)[2:3]<-c(paste0('SE',N_setmana,'_CI'),paste0('SE',N_setmana,'_CNI'))
   t.historica<-full_join(t.historica,t3.s.act,by='SVE')
-  write.xlsx(t.historica,sheetName = 'Hoja1','./Metaarxius/taula3_historica.xlsx',append = F)
+  write.xlsx(t.historica,sheetName = 'Hoja1','./Metaarxius/taula3_historica.xlsx',append = F,row.names = F)
 }
 
