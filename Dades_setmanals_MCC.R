@@ -567,12 +567,12 @@ colnames(Taula_resum_setmanal)[2]<-paste0('Valor SE',N_setmana)
 #Figura 3: Distribució del percentatge de contactes estrets per àmbits d’exposició i rang d’edat
 colores<-c("#FFCD33","#698ED0","#8CC168","#997300","#264478","#43682B","#FFC000","#4472C4","#9CA09F") ##70AD47
 
-Fig.3<-ggplot(taula_ambits_rangs_sve[!is.na(taula_ambits_rangs_sve$`àmbit contacte`),],
+Fig.3<-ggplot(taula_ambits_rangs_sve[!is.na(taula_ambits_rangs_sve$`àmbit contacte`),] %>% mutate(`àmbit contacte`=str_to_sentence(`àmbit contacte`)),
        aes(x=Rang_edat,y=N_contactes,fill=`àmbit contacte`)) +
   geom_bar(
     stat='identity',
     position = 'fill',
-    width=0.5
+    width=0.6
   ) + 
   guides(fill=guide_legend(title=""))+
   scale_y_continuous(labels = scales::percent_format())+ #passem l'eix de les y a %!!!
@@ -581,12 +581,13 @@ Fig.3<-ggplot(taula_ambits_rangs_sve[!is.na(taula_ambits_rangs_sve$`àmbit conta
   ylab(NULL)+
   xlab(NULL)+
   theme_minimal()+
-  theme(axis.text.x = element_text(colour = 'black',face = 'bold'),
-        axis.text.y = element_text(face = 'bold',colour='black'),
-        legend.text = element_text(face='bold'))
+  theme(axis.text.x = element_text(colour = 'black',face = 'bold',size = 16),
+        axis.text.y = element_text(face = 'bold',colour='black',size = 16),
+        legend.text = element_text(face='bold',size = 18),
+        legend.key.size = unit(0.7,'cm'))
 
 
-ggsave(paste0('./Output/Figura3_SE',N_setmana,'.png'),plot = Fig.3,width = 27.30,height = 17.64,units = 'cm',dpi = 500)
+ggsave(paste0('./Output/Figura3_SE',N_setmana,'.png'),plot = Fig.3,width = 30.10,height = 17.64,units = 'cm',dpi = 500)
 
 #Figura1:Freqüència relativa de casos informats (I) i no informats (NI),
 taula3.plot<-rbind(taula3_actual,taula3_anterior)
@@ -602,7 +603,7 @@ taula3.plot$Estat<-factor(taula3.plot$Estat,levels=c(paste0('I_SE',N_setmana),
 taula3.plot2<-taula3.plot %>% group_by(SVE,Estat,`%`)
 
 Fig1<-ggplot(taula3.plot2, aes(x=SVE,y=`%`,fill=Estat))+
-  geom_text(aes(label=Estat),position=position_dodge(width = 0.9),size=3,angle=90,hjust=-0.2)+
+  geom_text(aes(label=Estat),position=position_dodge(width = 0.9),size=5,angle=90,hjust=-0.2,fontface='bold')+
   geom_bar(
     stat='identity',
     position = 'dodge',
@@ -615,10 +616,10 @@ Fig1<-ggplot(taula3.plot2, aes(x=SVE,y=`%`,fill=Estat))+
   ylab(NULL)+
   xlab(NULL)+
   theme_classic()+
-  theme(axis.text.x = element_text(angle=90,hjust=1,vjust = 0.5,size = 12,colour = 'black',face = 'bold'),
-        axis.text.y = element_text(face = 'bold',colour='black'),
-        legend.text = element_text(face='bold'))
-ggsave(paste0('./Output/Figura1_SE',N_setmana,'.png'),plot = Fig1,width = 27.30,height = 17.64,units = 'cm',dpi = 400)
+  theme(axis.text.x = element_text(angle=90,hjust=1,vjust = 0.5,size = 16,colour = 'black',face = 'bold'),
+        axis.text.y = element_text(face = 'bold',colour='black',size = 16),
+        legend.text = element_text(face='bold',size = 18))
+ggsave(paste0('./Output/Figura1_SE',N_setmana,'.png'),plot = Fig1,width = 30.10,height = 17.64,units = 'cm',dpi = 400)
 
 
 #Figura 2:ambits totals
@@ -637,8 +638,11 @@ color.text<-c(replicate(length(colores)-3,'white'),'black','white','black')
 Fig.2<-ggplot(plot.data.ambits.t,aes(x='', y=Percentatge,fill=`àmbit contacte`))+
   geom_bar(stat = 'identity',width=1,color='white') +
   coord_polar("y", start = 0)+
-  geom_label_repel(aes(y = lab.ypos, label = paste0(`àmbit contacte`,' ',Percentatge, "%"),''),
-                   size = 5.5, show.legend = F, nudge_x = 0.7, colour='white',segment.colour = 'black',segment.size = 0.8)+
+  geom_label_repel(aes(y = lab.ypos, label = paste0(`àmbit contacte`,' ',Percentatge, "%"),'',fontface='bold'),
+                   size = 8, show.legend = F, nudge_x = 0.7, colour='white',segment.colour = 'black',segment.size = 0.8,force = 10)+
+  #repetim per enviar labels a sobre:
+  geom_label_repel(aes(y = lab.ypos, label = paste0(`àmbit contacte`,' ',Percentatge, "%"),'',fontface='bold'),
+                   size = 8, show.legend = F, nudge_x = 0.7, colour='white',segment.colour = 'black',segment.size = 0.8,force = 10,segment.alpha = 0)+ 
   scale_fill_manual(values = colores)+
   theme_void() +
   theme(legend.position = "none")
@@ -665,9 +669,14 @@ Fig4.a<-ggplot(plot.fig.4a,aes(x='',y=Percentatge,fill=verificació))+
   geom_bar(stat = 'identity',width=1,color='white') +
   coord_polar("y", start = 0) +
   geom_label_repel(aes(y=lab.y.pos,label =paste0(verificació,' ',Percentatge, "%"),'',fontface='bold'),
-                   size = 5.5, show.legend = F,nudge_x = c(1,0.01,1,0.1),nudge_y = c(0,0,0,0.0), 
+                   size = 8, show.legend = F,nudge_x = c(1,1,1,0.5),nudge_y = c(0,1.5,0,0.0), 
                    colour=c('white','white','white','white'),
                    
+                   segment.colour = 'black',segment.size = 0.8)+
+  geom_label_repel(aes(y=lab.y.pos,label =paste0(verificació,' ',Percentatge, "%"),'',fontface='bold'),
+                   size = 8, show.legend = F,nudge_x = c(1,1,1,0.5),nudge_y = c(0,1.5,0,0.0), 
+                   colour=c('white','white','white','white'),
+                   segment.alpha = 0,
                    segment.colour = 'black',segment.size = 0.8)+
   scale_fill_manual(values = colors_4a)+
   theme_void() +
@@ -695,11 +704,19 @@ Fig4.b<-ggplot(plot.fig.4b,aes(x='',y=Percentatge,fill=verificació))+
   geom_bar(stat = 'identity',width=1,color='white') +
   coord_polar("y", start = 0) +
   geom_label_repel(aes(y=lab.y.pos,label =paste0(verificació,' ',Percentatge, "%"),'',fontface='bold'),
-                   size = 5.5, show.legend = F,
-                   nudge_x = c(1,0,0.5,1),
-                   nudge_y = c(1,0,0.5,1), 
+                   size = 8, show.legend = F,
+                   nudge_x = c(0.05,0,0.5,1),
+                   nudge_y = c(0,0,0.5,1), 
                    colour=c('white'),
                    force = 10,
+                   segment.colour = 'black',segment.size = 0.8)+
+  geom_label_repel(aes(y=lab.y.pos,label =paste0(verificació,' ',Percentatge, "%"),'',fontface='bold'),
+                   size = 8, show.legend = F,
+                   nudge_x = c(0.05,0,0.5,1),
+                   nudge_y = c(0,0,0.5,1), 
+                   colour=c('white'),
+                   force = 10,
+                   segment.alpha = 0,
                    segment.colour = 'black',segment.size = 0.8)+
   scale_fill_manual(values = colors_4b)+
   theme_void() +
