@@ -548,7 +548,7 @@ Resum.setmanal<-c('',
                   Taula8.b[5,2],#3.1b
                   t.infografic.f[10,8],#3.2
                   t.infografic.f[10,9],#3.3
-                  paste0(round(as.numeric(t.infografic.f[10,7])/(sum(taula_indicador_3_totals[!is.na(taula_indicador_3_totals$verificació),]$N_contactes)-denom.escoles)*100,1),'%') ,#% escoles
+                  paste0(round(as.numeric(t.infografic.f[10,8])/(as.numeric(t.infografic.f[10,7])-denom.escoles)*100,1),'%') ,#% escoles 3.2/3.1a-denomEscolars
                   t.infografic.f[10,10],#3.4
                   '','',
                   t.infografic.f[10,11],#4.1
