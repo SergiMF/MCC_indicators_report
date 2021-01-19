@@ -297,15 +297,26 @@ Taula8.b<-contactes_2_sve %>%  filter(!is.na(verificació) & verificació%in%c('
   add_row(verificació='Totals',N=sum(.$N),Percentatge=sum(.$Percentatge))        
 
 #taula 8 agregada amb totes les verificacions
-dataset.escolar<-contactes_2_sve %>% filter( verificació=='no contesta' & `àmbit contacte`=='escolar') #escolars no contesten
+dataset.escolar.nc<-contactes_2_sve %>% filter( verificació=='no contesta' & `àmbit contacte`=='escolar') #escolars no contesten
+dataset.escolar.nc.sve<-dataset.escolar.nc %>% group_by(SVE) %>% dplyr::summarize(N=n())%>%
+  funcio_corregir_sve() %>% arrange(SVE)%>%
+  mutate(Percentatge=paste0(round(N/sum(N)*100,1),'%')) %>%
+  add_row(SVE='Totals',N=sum(.$N),Percentatge='100%') %>% as.data.frame()
+
+#Escolars que no contesten (N):
+Escolars.NC<-taula_ambits_verificacio %>% filter(`àmbit contacte`=='escolar' & verificació=='no contesta') %>% .$N %>% sum() %>% as.numeric()
+
 ordre.t8<-c('Cip vàlid','Error dades','Rebutja','No contesta','Cip no vàlid','És cas','Contacte altre cas',
-            'Migrat SVE','No és contacte','Totals')
+            'Migrat SVE','No és contacte','No contesta (\"escolar\")','Totals')
 
 #còpia per fer el gèfic sense '%'
-Taula8.plot<-contactes_2_sve %>% anti_join(dataset.escolar) %>% 
+
+
+Taula8.plot<-contactes_2_sve %>% anti_join(dataset.escolar.nc) %>% 
   filter(!is.na(verificació)) %>% 
   mutate(verificació=str_replace(verificació,'contacte no vàlid','no és contacte')) %>% 
   group_by(verificació) %>% dplyr::summarize(N=n()) %>%
+  add_row(verificació='No contesta (\"escolar\")',N=Escolars.NC) %>% 
   mutate(Percentatge=round(N/sum(N)*100,1),
          'verificació'=str_to_sentence(verificació) %>% str_replace_all('sve','SVE')) %>%  
   as.data.frame() %>% 
@@ -315,13 +326,14 @@ Taula8.plot<-contactes_2_sve %>% anti_join(dataset.escolar) %>%
 #Taula per l'informe
 Taula8<-Taula8.plot %>% mutate(Percentatge=paste0(Percentatge,'%'))
 
-
-
 #taula 8 amb el format de l'informe:
+
 Taula8.Informe<-Taula8.Informe %>% 
   mutate(
-    N=c('',Taula8[1,2],'',Taula8[2:5,2],sum(as.numeric(Taula8[1:5,2])),'N',Taula8[6:9,2],sum(as.numeric(Taula8[6:9,2])),Taula8[10,2]),
-    Percentatge=c('',Taula8[1,3],'',Taula8[2:5,3],'','Percentatge',Taula8[6:9,3],'','100%')
+    N=c('',Taula8[1,2],'',Taula8[2:5,2],sum(as.numeric(Taula8[1:5,2])),'N',
+        Taula8[6:9,2],Taula8[10,2],sum(as.numeric(Taula8[6:10,2])),Taula8[11,2]),
+    Percentatge=c('',Taula8[1,3],'',Taula8[2:5,3],paste0(round(as.numeric(.$N[8])/as.numeric(.$N[16])*100,1),'%'),
+                  'Percentatge',Taula8[6:10,3],paste0(round(as.numeric(.$N[15])/as.numeric(.$N[16])*100,1),'%'),'100%')
   ) %>% as.data.frame()
 
 # INDICADOR3 seguiment de contactes estrets (CE) ------------------------
@@ -501,7 +513,7 @@ names(Taula6_simptomàtics)<-c('SVE','Contactes simptomàtics')
 t.infografic<-Indicadors1_2 %>% mutate(SVE=str_replace_all(SVE,'Barcelona$','Barcelona Ciutat')) %>%
   mutate(SVE=str_replace_all(SVE,'Vallès Oriental i Vallès Occidental','Vallès')) %>% select(1:4,6:7)
 #repleguem dades per l'I3
-t.infografic_I3_ver<-contactes_2_sve %>% 
+t.infografic_I3_ver<-contactes_2_sve %>% anti_join(dataset.escolar.nc) %>% 
   filter(!is.na(verificació) & verificació!='migrat SVE' & verificació!='contacte altre cas' & verificació!='no és contacte' & verificació!='és cas'& verificació!='contacte no vàlid') %>% 
   group_by(SVE) %>% dplyr::summarize(CE_verificats=n()) %>% 
   funcio_corregir_sve()
@@ -559,7 +571,6 @@ names(t.infografic_final)<-t.infografic.f[,1]
 
 
 # TAULA RESUM SETMANAL ----------------------------------------------------
-denom.escoles<-taula_ambits_verificacio %>% filter(`àmbit contacte`=='escolar' & verificació=='no contesta') %>% .$N %>% sum() %>% as.numeric()
 
 Resum.setmanal<-c('',
                   t.infografic.f[10,2],#1.1
@@ -576,7 +587,7 @@ Resum.setmanal<-c('',
                   Taula8.b[5,2],#3.1b
                   t.infografic.f[10,8],#3.2
                   t.infografic.f[10,9],#3.3
-                  paste0(round(as.numeric(t.infografic.f[10,8])/(as.numeric(t.infografic.f[10,7])-denom.escoles)*100,1),'%') ,#% escoles 3.2/3.1a-denomEscolars
+                  paste0(round(as.numeric(t.infografic.f[10,8])/(as.numeric(t.infografic.f[10,7])-Escolars.NC)*100,1),'%') ,#% escoles 3.2/3.1a-denomEscolars
                   t.infografic.f[10,10],#3.4
                   '','',
                   t.infografic.f[10,11],#4.1
@@ -667,19 +678,19 @@ Fig.2<-ggplot(plot.data.ambits.t,aes(x='', y=Percentatge,fill=`àmbit contacte`)
   geom_bar(stat = 'identity',width=1,color='white') +
   coord_polar("y", start = 0)+
   geom_label_repel(aes(y = lab.ypos, label = paste0(`àmbit contacte`,' ',Percentatge, "%"),'',fontface='bold'),
-                   size = 8, show.legend = F, nudge_x = 0.7, colour='white',segment.colour = 'black',segment.size = 0.8,force = 10)+
+                   size = 8, show.legend = F, nudge_x = 0.7,nudge_y = 0.5, colour='white',segment.colour = 'black',segment.size = 0.8,force = 10,box.padding = 0)+
   #repetim per enviar labels a sobre:
-  geom_label_repel(aes(y = lab.ypos, label = paste0(`àmbit contacte`,' ',Percentatge, "%"),'',fontface='bold'),
-                   size = 8, show.legend = F, nudge_x = 0.7, colour='white',segment.colour = 'black',segment.size = 0.8,force = 10,segment.alpha = 0)+ 
+  #geom_label_repel(aes(y = lab.ypos, label = paste0(`àmbit contacte`,' ',Percentatge, "%"),'',fontface='bold'),
+                   #size = 8, show.legend = F, nudge_x = 0.7,nudge_y = 1, colour='white',segment.colour = 'black',segment.size = 0.8,force = 10,box.padding = 0,segment.alpha = 0)+ 
   scale_fill_manual(values = colores)+
   theme_void() +
   theme(legend.position = "none")
-ggsave(paste0('./Output/Figura2_SE',N_setmana,'.png'),plot = Fig.2,width = 27.30,height = 17.64,units = 'cm',dpi = 400)
+ggsave(paste0('./Output/Figura2_SE',N_setmana,'.png'),plot = Fig.2,width = 30.10,height = 20,units = 'cm',dpi = 400)
 
 #Figura 4
-Fig.4.plot<-Taula8.plot %>% slice(-10) %>% 
+Fig.4.plot<-Taula8.plot %>% slice(-11) %>% 
   mutate(lab.ypos = sum(Percentatge) - cumsum(Percentatge)+ 0.5*Percentatge)
-Fig.4.colors<-c('#4F81BD','#9BBB59','#8064A2','#2C4D75','#4F81BD','#C0504D','#4BACC6','#F79646','#772C2A')
+Fig.4.colors<-c('#4F81BD','#9BBB59','#8064A2','#2C4D75','#4F81BD','#C0504D','#4BACC6','#F79646','#772C2A','#256d7b')
 
 
 Fig4<-ggplot(Fig.4.plot,aes(x='', y=Percentatge,fill=`verificació`))+
@@ -721,6 +732,7 @@ write.xlsx(Taula_seguiment,sheetName = 'Seguiment',file = './Output/Indicadorsse
 write.xlsx(Taula_motius_SVE,sheetName = 'Motius_no_confinament_SVE',file = './Output/Indicadorssetmanals.xlsx',append = T)
 #write.xlsx(Taula7_soncas,sheetName = 'Taula7',file = './Output/Indicadorssetmanals.xlsx',append = T)
 write.xlsx(Taula8.Informe ,sheetName = 'Taula8',file = './Output/Indicadorssetmanals.xlsx',append = T)
+write.xlsx(dataset.escolar.nc.sve ,sheetName = 'Escolars.NoContesten',file = './Output/Indicadorssetmanals.xlsx',append = T)
 write.xlsx(t.infografic_final,sheetName = 'Taula_infogr',file = './Output/Indicadorssetmanals.xlsx',append = T)
 write.xlsx(Taula_resum_castellano,sheetName = 'taula Madrid SVE',file = './Output/Indicadorssetmanals.xlsx',append=T)
 write.xlsx(Taula_madrid_provincia,sheetName = 'Taula Madrid provicias',file = './Output/Indicadorssetmanals.xlsx',append = T)
