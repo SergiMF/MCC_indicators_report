@@ -579,7 +579,7 @@ Resum.setmanal<-c('',
                   '','',
                   t.infografic.f[10,5],#2.1
                   t.infografic.f[10,6],#2.2
-                  Indicadors1_2[10,9],#2.2.a
+                  paste0(Indicadors1_2[10,8],' ',str_extract(Indicadors1_2[10,9],'\\(.+\\)') ),#2.2.a Median + IQR
                   paste0('(',Indicadors1_2[10,10],'-',Indicadors1_2[10,11],')'),#2.2.b
                   '','',
                   sum(taula_indicador_3_totals[!is.na(taula_indicador_3_totals$verificació),]$N_contactes),#3.1
