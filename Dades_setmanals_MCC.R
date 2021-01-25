@@ -258,10 +258,22 @@ taula_ambits_contacte_totals_plot$`àmbit contacte`<- as.factor(taula_ambits_con
 taula_ambits_contacte_totals_plot$`àmbit contacte`<- factor(taula_ambits_contacte_totals_plot$`àmbit contacte`,levels=ordre_ambits)
 
 #Àmbits agregats per SVE
-taula_ambits_contacte_SVE<-as.data.frame(contactes_2_sve%>%group_by(SVE,`àmbit contacte`)%>%dplyr::summarize(N_contactes=n())) %>% 
-  funcio_corregir_sve() %>% arrange(SVE)
+taula_ambits_contacte_SVE<-as.data.frame(contactes_2_sve%>%group_by(SVE,`àmbit contacte`)%>%
+                                           dplyr::summarize(N_contactes=n())) %>% 
+                                           funcio_corregir_sve() %>% arrange(SVE) %>%
+                                           mutate(`àmbit contacte`=factor(`àmbit contacte`,levels = ordre_ambits)) %>% 
+                                           spread(`àmbit contacte`,N_contactes) %>% replace(is.na(.), 0) %>% as.data.frame()
+taula_ambits_contacte_SVE[nrow(taula_ambits_contacte_SVE)+1,]<-c('Totals',colSums(taula_ambits_contacte_SVE[,2:ncol(taula_ambits_contacte_SVE)]))
+
+
 #Àmbits agregats per Rang d'edat
-taula_ambits_rangs<-as.data.frame(ambits_rang_df%>%group_by(Rang_edat,`àmbit contacte`)%>%dplyr::summarize(N_contactes=n()))
+taula_ambits_rangs<-as.data.frame(ambits_rang_df%>%group_by(Rang_edat,`àmbit contacte`)%>%
+                                    dplyr::summarize(N_contactes=n())) %>% 
+                                    mutate(Rang_edat=factor(Rang_edat,levels = ordre_edats),
+                                           `àmbit contacte`=factor(`àmbit contacte`,levels = ordre_ambits)) %>% arrange(Rang_edat) %>% 
+                                    spread(`àmbit contacte`,N_contactes) %>% replace(is.na(.), 0) %>% as.data.frame()
+taula_ambits_rangs[nrow(taula_ambits_rangs)+1,]<-c('Totals',colSums(taula_ambits_rangs[,2:ncol(taula_ambits_rangs)]))
+                                    
 #Àmbits agregats per Rang d'edat i SVE
 taula_ambits_rangs_sve<-as.data.frame(ambits_rang_df%>%group_by(SVE,Rang_edat,`àmbit contacte`)%>%dplyr::summarize(N_contactes=n())) %>% 
   funcio_corregir_sve() %>% arrange(SVE)
@@ -269,10 +281,14 @@ taula_ambits_rangs_sve$Rang_edat<-as.factor(taula_ambits_rangs_sve$Rang_edat) #E
 taula_ambits_rangs_sve$`àmbit contacte` <-as.factor(taula_ambits_rangs_sve$`àmbit contacte`)
 taula_ambits_rangs_sve$Rang_edat<-factor(taula_ambits_rangs_sve$Rang_edat,levels = ordre_edats)
 taula_ambits_rangs_sve$`àmbit contacte` <-factor(taula_ambits_rangs_sve$`àmbit contacte`,levels = ordre_ambits)
+taula_ambits_rangs_sve<-taula_ambits_rangs_sve %>% spread(`àmbit contacte`,N_contactes) %>% replace(is.na(.), 0) %>% 
+  mutate(Totals=rowSums(.[,3:ncol(.)])) %>% as.data.frame()
 
 #Àmbits per verificació
 taula_ambits_verificacio<-contactes_2_sve %>% group_by(`àmbit contacte`,verificació) %>% dplyr::summarize(N=n()) %>% 
-  arrange(`àmbit contacte`,verificació) %>% as.data.frame()
+  arrange(`àmbit contacte`,verificació) %>% as.data.frame() %>% spread(verificació,N) %>% replace(is.na(.),0)
+taula_ambits_verificacio[10,1]<-'<NA>'
+taula_ambits_verificacio[nrow(taula_ambits_verificacio)+1,]<-c('Totals',colSums(taula_ambits_verificacio[,2:ncol(taula_ambits_verificacio)]))
 
 
 #Taula 8 Casuístiques de no seguiment de contactes estrets verificats:
@@ -331,17 +347,21 @@ Taula8<-Taula8.plot %>% mutate(Percentatge=paste0(Percentatge,'%'))
 Taula8.Informe<-Taula8.Informe %>% 
   mutate(
     N=c('',Taula8[1,2],'',Taula8[2:5,2],sum(as.numeric(Taula8[1:5,2])),'N',
-        Taula8[6:9,2],Taula8[10,2],sum(as.numeric(Taula8[6:10,2])),Taula8[11,2]),
+        Taula8[6:9,2],Taula8[10,2],sum(as.numeric(Taula8[6:10,2])),Taula8[11,2])
+    ) %>%
+    mutate(
     Percentatge=c('',Taula8[1,3],'',Taula8[2:5,3],paste0(round(as.numeric(.$N[8])/as.numeric(.$N[16])*100,1),'%'),
                   'Percentatge',Taula8[6:10,3],paste0(round(as.numeric(.$N[15])/as.numeric(.$N[16])*100,1),'%'),'100%')
-  ) %>% as.data.frame()
+    ) %>% as.data.frame()
 
 # INDICADOR3 seguiment de contactes estrets (CE) ------------------------
 
 
 #CE agregats per SVE i verificació
 Indicadors_3_SVE<-as.data.frame(contactes_2_sve%>%group_by(SVE,verificació)%>%dplyr::summarize(N_contactes=n())) %>% 
-  funcio_corregir_sve() %>% arrange(SVE)
+  funcio_corregir_sve() %>% arrange(SVE) %>% spread(verificació,N_contactes) %>% replace(is.na(.), 0) %>% as.data.frame() 
+Indicadors_3_SVE[nrow(Indicadors_3_SVE)+1,]<-c('Totals',colSums(Indicadors_3_SVE[,2:ncol(Indicadors_3_SVE)]))
+
 taula_indicador_3_totals<-as.data.frame(contactes_2_sve%>%group_by(verificació)%>%dplyr::summarize(N_contactes=n()))
 
 
