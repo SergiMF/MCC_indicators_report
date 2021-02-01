@@ -219,7 +219,7 @@ colnames(superspreaders)[6]<-'N_contactes_segons_pestanya_pacients'
 
 
 #Estudi d'àmbits dels contactes:
-ambits_rang_df<-contactes_2_sve
+ambits_rang_df<-contactes_2_sve %>% filter(`àmbit contacte`!='escolar' & !is.na(`àmbit contacte`) & `àmbit contacte`!='desconegut' )
 
 #Càlcul de les edats:
 ambits_rang_df$`data naixement`<-parse_date_time(ambits_rang_df$`data naixement`,c('dmy','mdy','ymd'))
@@ -243,7 +243,7 @@ ambits_rang_df<-ambits_rang_df%>%filter(!is.na(`data naixement`))%>%mutate(edat=
 
 #Afegim una segona columna on afegirem el rang al que pertany
 ordre_edats<-c('< 12 anys','12-19 anys','20-39 anys','40-59 anys','60-79 anys','> 79 anys')
-ordre_ambits<-c('social','medi transport','laboral','escolar','domicili','desconegut','centre sociosanitari','centre sanitari','altres')
+ordre_ambits<-c('social','medi transport','laboral','domicili','centre sociosanitari','centre sanitari','altres')
 ambits_rang_df<-ambits_rang_df%>%mutate(Rang_edat=(case_when(edat>79 ~'> 79 anys',
                                                              between(edat,60,79)~'60-79 anys',
                                                              between(edat,40,59)~'40-59 anys',
@@ -252,13 +252,13 @@ ambits_rang_df<-ambits_rang_df%>%mutate(Rang_edat=(case_when(edat>79 ~'> 79 anys
                                                              edat<12~'< 12 anys'
 )))
 #Els àmbits totals sense agregar
-taula_ambits_contacte_totals<-as.data.frame(contactes_2_sve%>%group_by(`àmbit contacte`)%>%dplyr::summarize(N_contactes=n()))
+taula_ambits_contacte_totals<-as.data.frame(ambits_rang_df%>%group_by(`àmbit contacte`)%>%dplyr::summarize(N_contactes=n()))
 taula_ambits_contacte_totals_plot<-taula_ambits_contacte_totals[!is.na(taula_ambits_contacte_totals$`àmbit contacte`),]#trec els NA
 taula_ambits_contacte_totals_plot$`àmbit contacte`<- as.factor(taula_ambits_contacte_totals_plot$`àmbit contacte`)
 taula_ambits_contacte_totals_plot$`àmbit contacte`<- factor(taula_ambits_contacte_totals_plot$`àmbit contacte`,levels=ordre_ambits)
 
 #Àmbits agregats per SVE
-taula_ambits_contacte_SVE<-as.data.frame(contactes_2_sve%>%group_by(SVE,`àmbit contacte`)%>%
+taula_ambits_contacte_SVE<-as.data.frame(ambits_rang_df%>%group_by(SVE,`àmbit contacte`)%>%
                                            dplyr::summarize(N_contactes=n())) %>% 
                                            funcio_corregir_sve() %>% arrange(SVE) %>%
                                            mutate(`àmbit contacte`=factor(`àmbit contacte`,levels = ordre_ambits)) %>% 
@@ -267,12 +267,14 @@ taula_ambits_contacte_SVE[nrow(taula_ambits_contacte_SVE)+1,]<-c('Totals',colSum
 
 
 #Àmbits agregats per Rang d'edat
-taula_ambits_rangs<-as.data.frame(ambits_rang_df%>%group_by(Rang_edat,`àmbit contacte`)%>%
+taula_ambits_rangs<-as.data.frame(ambits_rang_df%>%filter(`àmbit contacte`!='escolars') %>% 
+                                    group_by(Rang_edat,`àmbit contacte`)%>%
                                     dplyr::summarize(N_contactes=n())) %>% 
                                     mutate(Rang_edat=factor(Rang_edat,levels = ordre_edats),
                                            `àmbit contacte`=factor(`àmbit contacte`,levels = ordre_ambits)) %>% arrange(Rang_edat) %>% 
                                     spread(`àmbit contacte`,N_contactes) %>% replace(is.na(.), 0) %>% as.data.frame()
 taula_ambits_rangs[nrow(taula_ambits_rangs)+1,]<-c('Totals',colSums(taula_ambits_rangs[,2:ncol(taula_ambits_rangs)]))
+
                                     
 #Àmbits agregats per Rang d'edat i SVE
 taula_ambits_rangs_sve<-as.data.frame(ambits_rang_df%>%group_by(SVE,Rang_edat,`àmbit contacte`)%>%dplyr::summarize(N_contactes=n())) %>% 
@@ -281,37 +283,17 @@ taula_ambits_rangs_sve$Rang_edat<-as.factor(taula_ambits_rangs_sve$Rang_edat) #E
 taula_ambits_rangs_sve$`àmbit contacte` <-as.factor(taula_ambits_rangs_sve$`àmbit contacte`)
 taula_ambits_rangs_sve$Rang_edat<-factor(taula_ambits_rangs_sve$Rang_edat,levels = ordre_edats)
 taula_ambits_rangs_sve$`àmbit contacte` <-factor(taula_ambits_rangs_sve$`àmbit contacte`,levels = ordre_ambits)
-taula_ambits_rangs_sve<-taula_ambits_rangs_sve %>% spread(`àmbit contacte`,N_contactes) %>% replace(is.na(.), 0) %>% 
+taula_ambits_rangs_sve_informe<-taula_ambits_rangs_sve %>% spread(`àmbit contacte`,N_contactes) %>% replace(is.na(.), 0) %>% 
   mutate(Totals=rowSums(.[,3:ncol(.)])) %>% as.data.frame()
 
 #Àmbits per verificació
-taula_ambits_verificacio<-contactes_2_sve %>% group_by(`àmbit contacte`,verificació) %>% dplyr::summarize(N=n()) %>% 
+taula_ambits_verificacio<-ambits_rang_df %>%
+  group_by(`àmbit contacte`,verificació) %>% dplyr::summarize(N=n()) %>% 
   arrange(`àmbit contacte`,verificació) %>% as.data.frame() %>% spread(verificació,N) %>% replace(is.na(.),0)
-taula_ambits_verificacio[10,1]<-'<NA>'
 taula_ambits_verificacio[nrow(taula_ambits_verificacio)+1,]<-c('Totals',colSums(taula_ambits_verificacio[,2:ncol(taula_ambits_verificacio)]))
 
 
 #Taula 8 Casuístiques de no seguiment de contactes estrets verificats:
-#Taula 8a:Incidències de no seguiment de contactes
-prueba<-contactes_2_sve %>% filter(!is.na(verificació) & verificació%in%c('error dades','rebutja','no contesta','CIP no vàlid')) %>% 
-  group_by(verificació) %>% dplyr::summarize(N=n()) %>% arrange(verificació) %>% 
-  mutate(Percentatge=round(N/sum(N)*100,1),
-         'verificació'=c('CIP no vàlid','Error de dades','No respon','Rebutja seguiment'
-         ))
-Taula8.a<-contactes_2_sve %>% filter(!is.na(verificació) & verificació%in%c('error dades','rebutja','no contesta','CIP no vàlid')) %>% 
-  group_by(verificació) %>% dplyr::summarize(N=n()) %>% arrange(verificació) %>% 
-  mutate(Percentatge=round(N/sum(N)*100,1),
-         'verificació'=c('CIP no vàlid','Error de dades','No respon','Rebutja seguiment')) %>% as.data.frame() %>% 
-  add_row(verificació='Totals',N=sum(.$N),Percentatge=sum(.$Percentatge))
-#taula8b:Contactes que no requereixen seguiment
-Taula8.b<-contactes_2_sve %>%  filter(!is.na(verificació) & verificació%in%c('migrat SVE','contacte altre cas','no és contacte','és cas','contacte no vàlid')) %>% 
-  mutate(verificació=str_replace(verificació,'contacte no vàlid','no és contacte')) %>% 
-  group_by(verificació) %>% dplyr::summarize(N=n()) %>% arrange(verificació) %>% 
-  mutate(Percentatge=round(N/sum(N)*100,1),
-         'verificació'=str_to_sentence(verificació) %>% str_replace_all('sve','SVE')) %>%  
-  as.data.frame() %>% 
-  add_row(verificació='Totals',N=sum(.$N),Percentatge=sum(.$Percentatge))        
-
 #taula 8 agregada amb totes les verificacions
 dataset.escolar.nc<-contactes_2_sve %>% filter( verificació=='no contesta' & `àmbit contacte`=='escolar') #escolars no contesten
 dataset.escolar.nc.sve<-dataset.escolar.nc %>% group_by(SVE) %>% dplyr::summarize(N=n())%>%
@@ -320,7 +302,7 @@ dataset.escolar.nc.sve<-dataset.escolar.nc %>% group_by(SVE) %>% dplyr::summariz
   add_row(SVE='Totals',N=sum(.$N),Percentatge='100%') %>% as.data.frame()
 
 #Escolars que no contesten (N):
-Escolars.NC<-taula_ambits_verificacio %>% filter(`àmbit contacte`=='escolar' & verificació=='no contesta') %>% .$N %>% sum() %>% as.numeric()
+Escolars.NC<- as.numeric(dataset.escolar.nc.sve[10,2])
 
 ordre.t8<-c('Cip vàlid','Error dades','Rebutja','No contesta','Cip no vàlid','És cas','Contacte altre cas',
             'Migrat SVE','No és contacte','No contesta (\"escolar\")','Totals')
@@ -603,8 +585,8 @@ Resum.setmanal<-c('',
                   paste0('(',Indicadors1_2[10,10],'-',Indicadors1_2[10,11],')'),#2.2.b
                   '','',
                   sum(taula_indicador_3_totals[!is.na(taula_indicador_3_totals$verificació),]$N_contactes),#3.1
-                  t.infografic.f[10,7],#3.1a
-                  Taula8.b[5,2],#3.1b
+                  Taula8.Informe[8,2],#3.1a
+                  Taula8.Informe[15,2],#3.1b
                   t.infografic.f[10,8],#3.2
                   t.infografic.f[10,9],#3.3
                   paste0(round(as.numeric(t.infografic.f[10,8])/(as.numeric(t.infografic.f[10,7])-Escolars.NC)*100,1),'%') ,#% escoles 3.2/3.1a-denomEscolars
@@ -624,7 +606,7 @@ colnames(Taula_resum_setmanal)[2]<-paste0('Valor SE',N_setmana)
 
 
 #Figura 3: Distribució del percentatge de contactes estrets per àmbits d’exposició i rang d’edat
-colores<-c("#FFCD33","#698ED0","#8CC168","#997300","#264478","#43682B","#FFC000","#4472C4","#9CA09F") ##70AD47
+colores<-c("#FFCD33","#698ED0","#8CC168","#264478","#43682B",'#8064A2',"#4472C4","#9CA09F") #Ê"#997300", "#FFC000"
 
 Fig.3<-ggplot(taula_ambits_rangs_sve[!is.na(taula_ambits_rangs_sve$`àmbit contacte`),] %>% mutate(`àmbit contacte`=str_to_sentence(`àmbit contacte`)),
        aes(x=Rang_edat,y=N_contactes,fill=`àmbit contacte`)) +
@@ -744,7 +726,7 @@ write.xlsx(taula_ambits_contacte_SVE,sheetName = 'Àmbits_sve',file = './Output/
 write.xlsx(taula_ambits_contacte_totals,sheetName = 'Àmbits_totals',file = './Output/Indicadorssetmanals.xlsx',append = T)
 write.xlsx(taula_Escoles,sheetName = 'Taula_Escoles',file = './Output/Indicadorssetmanals.xlsx',append = T)
 write.xlsx(taula_ambits_rangs,sheetName = 'Àmbits_Rang',file = './Output/Indicadorssetmanals.xlsx',append = T)
-write.xlsx(taula_ambits_rangs_sve,sheetName = 'Àmbits_Rang_SVE_mes',file = './Output/Indicadorssetmanals.xlsx',append = T)
+write.xlsx(taula_ambits_rangs_sve_informe,sheetName = 'Àmbits_Rang_SVE_mes',file = './Output/Indicadorssetmanals.xlsx',append = T)
 write.xlsx(taula_ambits_verificacio,sheetName = 'Àmbits_verificació',file = './Output/Indicadorssetmanals.xlsx',append = T)
 write.xlsx(I4_simptomàtics0_7_14,sheetName = 'Simptomàtics',file = './Output/Indicadorssetmanals.xlsx',append = T)
 write.xlsx(I4_asimptomàtics0_7_14,sheetName = 'Asimptomàtics',file = './Output/Indicadorssetmanals.xlsx',append = T)
